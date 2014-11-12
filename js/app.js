@@ -12,7 +12,7 @@
 //sending a DELETE to this URL + '/' + task.objectId will delete an existing task
 var tasksUrl = 'https://api.parse.com/1/classes/tasks';
 
-angular.module('ToDoApp', [])
+angular.module('ToDoApp', ['ui.bootstrap'])
     .config(function($httpProvider) {
         //Parse required two extra headers sent with every HTTP request: X-Parse-Application-Id, X-Parse-REST-API-Key
         //the first needs to be set to your application's ID value
@@ -23,47 +23,86 @@ angular.module('ToDoApp', [])
         $httpProvider.defaults.headers.common['X-Parse-Application-Id'] = 'ptU7fipya0RCKy0jN8HAcCybvzyxS2jinvbFzMbr';
         $httpProvider.defaults.headers.common['X-Parse-REST-API-Key'] = 'HNfo7OrX03onWZOZ5E82ZMaL15N3WdOq6Y5OBzYI';
     })
-    .controller('TasksController', function($scope, $http){
-        $scope.refreshTasks = function() {
+    .controller('TasksController', function($scope, $http) {
+        $scope.refreshTasks = function () {
             $scope.loading = true;
             $http.get(tasksUrl + '?where={"done":false}')
-                .success(function(data) {
+                //when returning a list of data, Parse will always return an
+                //object with one property called 'results', which will contain an
+                //array containing all the data objects
+                .success(function (data) {
                     $scope.tasks = data.results;
                 })
-                .error(function(err) {
+                .error(function (err) {
                     $scope.errorMessage = err;
+                    //notify user in some way
                 })
-                .finally(function() {
+                .finally(function () {
                     $scope.loading = false;
                 });
-        };
+        };//$scope.refreshTasks()
 
+        //call refreshTaks() to get the initial set of tasks on page load
         $scope.refreshTasks();
 
+        //initialize a new task object on the scope for the new task form
         $scope.newTask = {done: false};
 
-        $scope.addTask = function() {
-
+        //function to add a new task to the list
+        $scope.addTask = function () {
+            $scope.inserting = true;
             $http.post(tasksUrl, $scope.newTask)
-                .success(function(responseData) {
+                .success(function (responseData) {
+                    //Parse will return the new objectId in the response data
+                    //copy that to the task we just insterted
                     $scope.newTask.objectId = responseData.objectId;
+
+                    //an add that task to our task list
                     $scope.tasks.push($scope.newTask);
                     $scope.newTask = {done: false};
                 })
-                .error(function(err) {
+                .error(function (err) {
                     $scope.errorMessage = err;
+                })
+                .finally(function () {
+                    $scope.inserting = false;
                 });
         };
 
-        $scope.updateTask = function(task) {
+        $scope.updateTask = function (task) {
+            $scope.updating = true;
             $http.put(tasksUrl + '/' + task.objectId, task)
-                .success(function() {
+                .success(function () {
                     //don't need to do anything here
                     // we might want to show feedback that the update was successful
                 })
-                .error(function(err) {
+                .error(function (err) {
                     $scope.errorMessage = err;
+                })
+                .finally(function () {
+                    $scope.updating = false;
                 });
-        };
+        }; //updateTask()
+
+        $scope.incrementVotes = function (task, amount) {
+            $scope.updating = true;
+            $http.put(tasksUrl + '/' +task.objectId, {
+                votes: {
+                    __op: 'Increment',
+                    amount: amount
+                }
+            })
+                .success(function(responseData) {
+                    console.log(responseData);
+                    task.votes = responseData.votes;
+                })
+                .error(function(err){
+                    console.log(err);
+                })
+                .finally(function() {
+                    $scope.updating = false;
+                })
+        };//increment Votes
+
     });
 
